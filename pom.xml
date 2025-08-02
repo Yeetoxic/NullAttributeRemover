@@ -6,7 +6,7 @@
 
     <groupId>gg.lakepvp</groupId>
     <artifactId>NullAttributeRemover</artifactId>
-    <version>v1</version>
+    <version>v1.1</version>
     <packaging>jar</packaging>
 
     <name>NullAttributeRemover</name>
