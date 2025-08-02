@@ -1,0 +1,4 @@
+name: NullAttributeRemover
+version: '${project.version}'
+main: gg.lakepvp.nullattributeremover.NullAttributeRemover
+api-version: '1.21'
