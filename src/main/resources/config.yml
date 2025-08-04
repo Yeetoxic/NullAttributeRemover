@@ -7,4 +7,4 @@ log-when-clean: true            # Log a message even if no bad attributes were f
 kick-on-failure: true           # Kick the player if a modifier couldn't be removed
 logUUIDLikeNames: true          # Should any UUIDs that look like names be logged?
 log-invalid-uuid-names: true    # If false, suppress logs like "Skipped bad UUID: armor.boots"
-debugLogs: false
+debugLogs: false                # Enable detailed internal debug logs

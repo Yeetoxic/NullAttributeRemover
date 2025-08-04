@@ -33,11 +33,12 @@ The scan can be triggered manually or on events like teleport, respawn, world ch
 ```yaml
 # config.yml
 silent: false                # Suppresses player chat messages
+kickOnFailure: true          # Kick player if bad modifiers can’t be removed
 log-to-console: true         # Show scan results in console
 log-to-file: true            # Save scan logs to plugins/NullAttributeRemover/nar.log
 logUUIDLikeNames: true       # Warn if modifier name looks like a UUID
+log-invalid-uuid-names: true    # If false, suppress logs like "Skipped bad UUID: armor.boots"
 debugLogs: true              # Enable detailed internal debug logs
-kickOnFailure: true          # Kick player if bad modifiers can’t be removed
 ```
 
 ## 📦 Commands
