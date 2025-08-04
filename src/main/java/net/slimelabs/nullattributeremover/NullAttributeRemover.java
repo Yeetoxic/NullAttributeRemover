@@ -13,6 +13,7 @@ import org.bukkit.event.player.*;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -193,6 +194,10 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
 
         Map<UUID, List<String>> globalUUIDMap = new HashMap<>();
         Map<Attribute, List<AttributeModifier>> removeQueue = new HashMap<>();
+        Set<String> loggedNamesThisScan = new HashSet<>();
+
+        boolean logUUIDNames = getConfig().getBoolean("logUUIDLikeNames", false);
+        boolean enableDebug = getConfig().getBoolean("debugLogs", false);
 
         for (Attribute attribute : Attribute.values()) {
             AttributeInstance instance = player.getAttribute(attribute);
@@ -212,19 +217,22 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
                     UUID uuid = null;
                     String name = modifier.getName();
                     boolean isBlankName = (name == null || name.codePoints().allMatch(Character::isWhitespace));
-
-                    // Detect UUID-like name *before* calling getUniqueId()
                     boolean looksLikeUUID = false;
-                    try {
-                        if (name != null) {
+
+                    if (name != null) {
+                        try {
                             UUID.fromString(name);
                             looksLikeUUID = true;
-                        }
-                    } catch (IllegalArgumentException ignored) {}
+                        } catch (IllegalArgumentException ignored) {}
 
-                    if (isBlankName || looksLikeUUID) {
+                        if (looksLikeUUID && logUUIDNames && !silent) {
+                            getLogger().warning("[NAR] UUID-like name detected: '" + name + "' on attribute [" + attribute.name() + "] for player " + player.getName());
+                        }
+                    }
+
+                    if (isBlankName) {
                         shouldRemove = true;
-                        reason = looksLikeUUID ? "UUID-like name" : "blank name";
+                        reason = "blank name";
                     } else {
                         try {
                             uuid = modifier.getUniqueId();
@@ -236,9 +244,11 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
                                 localUUIDMap.computeIfAbsent(uuid, k -> new ArrayList<>()).add(modifier);
                             }
                         } catch (IllegalArgumentException ex) {
+                            if (enableDebug && loggedNamesThisScan.add(name)) {
+                                getLogger().warning("[DEBUG] Modifier has invalid UUID string: " + name);
+                            }
                             shouldRemove = true;
                             reason = "invalid UUID string: " + ex.getMessage();
-                            getLogger().warning("[DEBUG] Modifier has invalid UUID string: " + name);
                         }
                     }
 
