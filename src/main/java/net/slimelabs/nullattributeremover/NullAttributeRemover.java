@@ -361,7 +361,9 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
                 uuidStr = modifier.getUniqueId().toString();
             } catch (IllegalArgumentException e) {
                 uuidStr = "invalid-uuid";
-                getLogger().warning("[logRemoved] Skipped bad UUID: " + modName);
+                if (getConfig().getBoolean("log-invalid-uuid-names", true)) {
+                    getLogger().warning("[logRemoved] Skipped bad UUID: " + modName);
+                }
             }
 
             double amt = modifier.getAmount();
