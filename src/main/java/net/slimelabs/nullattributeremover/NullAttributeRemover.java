@@ -91,7 +91,7 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
         }
 
         if (args.length == 0) {
-            sender.sendMessage(prefix + GRAY + "Usage: /nar <scan|reload|version> [player]");
+            sender.sendMessage(prefix + GRAY + "Usage: /nar <scan|reload|version|debug|reset> [player]");
             return true;
         }
 
@@ -191,7 +191,7 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
         int clearedCount = 0;
         boolean failedToRemove = false;
 
-        Map<UUID, List<String>> globalUUIDMap = new HashMap<>(); // UUID → list of attribute names
+        Map<UUID, List<String>> globalUUIDMap = new HashMap<>();
         Map<Attribute, List<AttributeModifier>> removeQueue = new HashMap<>();
 
         for (Attribute attribute : Attribute.values()) {
@@ -209,13 +209,37 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
                     shouldRemove = true;
                     reason = "null modifier";
                 } else {
-                    UUID uuid = modifier.getUniqueId();
-                    globalUUIDMap.computeIfAbsent(uuid, k -> new ArrayList<>()).add(attribute.name());
-                    localUUIDMap.computeIfAbsent(uuid, k -> new ArrayList<>()).add(modifier);
+                    UUID uuid = null;
+                    String name = modifier.getName();
+                    boolean isBlankName = (name == null || name.codePoints().allMatch(Character::isWhitespace));
 
-                    if (uuid == null) {
+                    // Detect UUID-like name *before* calling getUniqueId()
+                    boolean looksLikeUUID = false;
+                    try {
+                        if (name != null) {
+                            UUID.fromString(name);
+                            looksLikeUUID = true;
+                        }
+                    } catch (IllegalArgumentException ignored) {}
+
+                    if (isBlankName || looksLikeUUID) {
                         shouldRemove = true;
-                        reason = "null UUID";
+                        reason = looksLikeUUID ? "UUID-like name" : "blank name";
+                    } else {
+                        try {
+                            uuid = modifier.getUniqueId();
+                            if (uuid == null) {
+                                shouldRemove = true;
+                                reason = "null UUID";
+                            } else {
+                                globalUUIDMap.computeIfAbsent(uuid, k -> new ArrayList<>()).add(attribute.name());
+                                localUUIDMap.computeIfAbsent(uuid, k -> new ArrayList<>()).add(modifier);
+                            }
+                        } catch (IllegalArgumentException ex) {
+                            shouldRemove = true;
+                            reason = "invalid UUID string: " + ex.getMessage();
+                            getLogger().warning("[DEBUG] Modifier has invalid UUID string: " + name);
+                        }
                     }
 
                     double amt = modifier.getAmount();
@@ -232,21 +256,6 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
                         reason = "invalid operation";
                     }
 
-                    String name = modifier.getName();
-                    boolean isBlankName = (name == null || name.codePoints().allMatch(Character::isWhitespace));
-
-                    // NEW: Detect UUID-like names
-                    boolean looksLikeUUID = false;
-                    try {
-                        UUID.fromString(name);
-                        looksLikeUUID = true;
-                    } catch (IllegalArgumentException ignored) {}
-
-                    if (isBlankName || looksLikeUUID) {
-                        shouldRemove = true;
-                        reason = looksLikeUUID ? "UUID-like name" : "blank name";
-                    }
-
                     if (amt == 0 && (isBlankName || looksLikeUUID)) {
                         shouldRemove = true;
                         reason = "blank or UUID name and zero amount";
@@ -261,7 +270,6 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
                 }
             }
 
-            // Handle local duplicate UUIDs
             for (Map.Entry<UUID, List<AttributeModifier>> entry : localUUIDMap.entrySet()) {
                 if (entry.getValue().size() > 1) {
                     for (AttributeModifier dupe : entry.getValue()) {
@@ -275,13 +283,11 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
                 }
             }
 
-            // Queue removal per attribute
             if (!toRemove.isEmpty()) {
                 removeQueue.put(attribute, toRemove);
             }
         }
 
-        // Global UUID duplicates (same UUID across attributes)
         for (Map.Entry<UUID, List<String>> entry : globalUUIDMap.entrySet()) {
             if (entry.getValue().size() > 1) {
                 UUID dupeUUID = entry.getKey();
@@ -290,7 +296,6 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
                     if (instance == null) continue;
                     for (AttributeModifier modifier : new ArrayList<>(instance.getModifiers())) {
                         if (modifier != null && dupeUUID.equals(modifier.getUniqueId())) {
-                            // Don't log twice
                             if (!removeQueue.getOrDefault(attribute, List.of()).contains(modifier)) {
                                 removeQueue.computeIfAbsent(attribute, k -> new ArrayList<>()).add(modifier);
                                 logRemoved(player, attribute, modifier, "duplicate UUID (global)", silent);
@@ -303,7 +308,6 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
             }
         }
 
-        // Now try to remove
         for (Map.Entry<Attribute, List<AttributeModifier>> entry : removeQueue.entrySet()) {
             AttributeInstance instance = player.getAttribute(entry.getKey());
             if (instance == null) continue;
@@ -337,15 +341,32 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
 
     private void logRemoved(Player player, Attribute attribute, AttributeModifier modifier, String reason, boolean silent) {
         StringBuilder detail = new StringBuilder();
-        detail.append(GRAY + "• ").append(BLUE).append(attribute.name()).append(GRAY)
+        detail.append(GRAY).append("• ").append(BLUE).append(attribute.name()).append(GRAY)
                 .append(" → ").append(RED).append(reason);
+
         if (modifier != null) {
-            detail.append(GRAY).append(" [name=").append(modifier.getName())
-                    .append(", uuid=").append(modifier.getUniqueId())
-                    .append(", amt=").append(modifier.getAmount())
-                    .append(", op=").append(modifier.getOperation() != null ? modifier.getOperation().name() : "null").append("]");
+            String modName = modifier.getName();
+            String uuidStr;
+            try {
+                uuidStr = modifier.getUniqueId().toString();
+            } catch (IllegalArgumentException e) {
+                uuidStr = "invalid-uuid";
+                getLogger().warning("[logRemoved] Skipped bad UUID: " + modName);
+            }
+
+            double amt = modifier.getAmount();
+            String op = (modifier.getOperation() != null) ? modifier.getOperation().name() : "null";
+
+            detail.append(GRAY).append(" [name=").append(modName)
+                    .append(", uuid=").append(uuidStr)
+                    .append(", amt=").append(amt)
+                    .append(", op=").append(op).append("]");
         }
-        player.sendMessage(detail.toString());
+
+        if (!silent && !silentMode) {
+            player.sendMessage(detail.toString());
+        }
+
         log(player.getName() + ": Removed [" + attribute.name() + "] modifier due to " + reason, true);
     }
 
