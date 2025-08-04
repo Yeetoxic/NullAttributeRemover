@@ -5,57 +5,66 @@ Originally created to fix `java.lang.NullPointerException` in corrupted player d
 
 ## 🔍 What It Does
 
-Scans all online players for modifiers with:
-- ❌ `null` or duplicate UUIDs
-- ❌ `NaN` or `Infinity` amounts
-- ❌ `null`, blank, or UUID-like names
-- ❌ invalid operations
-- ❌ completely null modifier entries
+This plugin scans player attributes for:
 
-## ✅ New in v1.2
+- ❌ `null` or duplicate UUIDs (even across attributes)
+- ❌ `NaN` or `Infinity` values
+- ❌ Invalid or missing operations
+- ❌ `null`, blank, or UUID-looking modifier names
+- ❌ Fully broken modifiers (null entries)
 
-- `/nar scan [player]` — manually scan a specific player or all online players  
-- `/nar debug <player>` — injects known-broken modifiers for testing
-- **Event-based scanning:** automatic checks on teleport, world change, etc.
-- **Config support** (`config.yml`) for:
-  - Silent mode (no chat messages to players)
-  - Console logging (on/off)
-  - Log file output (e.g. `logs/nar.log`)
-- Colored console logs for easy visibility
-- Detects UUID-style names and removes junky 0.0-amount filler modifiers
+If any are found, they’re **removed automatically**.  
+The scan can be triggered manually or on events like teleport, respawn, world change, etc.
+
+## ⚙️ How It Works
+
+- Checks every attribute on a player (`GENERIC_MAX_HEALTH`, etc.)
+- Inspects each modifier’s:
+  - UUID validity and uniqueness
+  - Name validity (including if it looks like a UUID)
+  - Value sanity (no `NaN`, `Infinity`, or zero junk)
+  - Operation type
+- If any part is broken or suspicious, it’s removed
+- If a modifier’s UUID is reused in multiple places, all duplicates are removed
+- Optional logs and messages are configurable
 
 ## 🔧 Configuration
 
 ```yaml
 # config.yml
-silent: false              # If true, suppresses chat messages sent to players
-log-to-console: true       # If true, log modifier actions to console
-log-to-file: true          # If true, also log to plugins/NullAttributeRemover/nar.log
+silent: false                # Suppresses player chat messages
+log-to-console: true         # Show scan results in console
+log-to-file: true            # Save scan logs to plugins/NullAttributeRemover/nar.log
+logUUIDLikeNames: true       # Warn if modifier name looks like a UUID
+debugLogs: true              # Enable detailed internal debug logs
+kickOnFailure: true          # Kick player if bad modifiers can’t be removed
 ```
 
 ## 📦 Commands
 
 | Command | Description |
 |--------|-------------|
-| `/nar scan [player]` | Scan a player or all online players for bad attributes |
-| `/nar debug <player>` | Injects known broken modifiers for testing your setup |
-| `/nar reset <player>` | Resets a player’s attributes to vanilla defaults (optional) |
+| `/nar scan [player]` | Scan a specific player or all online players |
+| `/nar debug <player>` | Injects broken modifiers for testing purposes |
+| `/nar reset <player>` | Clears all attributes and resets them to vanilla |
+
+> The plugin uses tab completion for all commands.
 
 ## 🧪 Compatibility
 
-- Requires **Java 17+**
+- Requires **Java 17 or newer**
 - Works with **Minecraft 1.17+**
-- Designed for **Paper** but may work on Spigot
+- Designed for **Paper**, may also work on Spigot and forks
 
-## 📦 Building
+## 🛠 Building From Source
 
-Use Maven to build:
+Clone and build with Maven:
 
 ```bash
 mvn clean package
 ```
 
-The output `.jar` will be in `target/`.
+The resulting `.jar` will be in the `target/` folder.
 
 ## ⚖️ License
 
