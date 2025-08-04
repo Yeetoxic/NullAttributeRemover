@@ -1,4 +1,16 @@
 name: NullAttributeRemover
-version: '${project.version}'
-main: gg.lakepvp.nullattributeremover.NullAttributeRemover
-api-version: '1.21'
+main: net.slimelabs.nullattributeremover.NullAttributeRemover
+version: ${project.version}
+api-version: 1.17
+description: Removes invalid/null attribute modifiers from players to prevent crashes.
+author: Danil Vilmont
+commands:
+  nar:
+    description: Main command for NullAttributeRemover
+    usage: /nar <scan|reload|version|debug|reset> [player]
+    permission: nullattributeremover.use
+    aliases: [nullattr, attrfix]
+permissions:
+  nullattributeremover.use:
+    description: Allows use of /nar commands
+    default: op

@@ -1,31 +1,51 @@
 # NullAttributeRemover
 
-A tiny Paper plugin that prevents server crashes caused by corrupted player attribute modifiers.  
-It automatically clears all attribute modifiers from players when they join.
+A lightweight Bukkit/Spigot plugin that scans and removes **broken** or **invalid attribute modifiers** from players to prevent crashes and instability.  
+Originally created to fix `java.lang.NullPointerException` in corrupted player data.
 
-## 💡 Why?
+## 🔍 What It Does
 
-Some malformed or plugin-generated items can leave behind null or invalid attribute data in a player's NBT.  
-This can crash Paper servers with errors like:
+Scans all online players for modifiers with:
+- ❌ `null` or duplicate UUIDs
+- ❌ `NaN` or `Infinity` amounts
+- ❌ `null`, blank, or UUID-like names
+- ❌ invalid operations
+- ❌ completely null modifier entries
 
+## ✅ New in v1.2
+
+- `/nar scan [player]` — manually scan a specific player or all online players  
+- `/nar debug <player>` — injects known-broken modifiers for testing
+- **Event-based scanning:** automatic checks on teleport, world change, etc.
+- **Config support** (`config.yml`) for:
+  - Silent mode (no chat messages to players)
+  - Console logging (on/off)
+  - Log file output (e.g. `logs/nar.log`)
+- Colored console logs for easy visibility
+- Detects UUID-style names and removes junky 0.0-amount filler modifiers
+
+## 🔧 Configuration
+
+```yaml
+# config.yml
+silent: false              # If true, suppresses chat messages sent to players
+log-to-console: true       # If true, log modifier actions to console
+log-to-file: true          # If true, also log to plugins/NullAttributeRemover/nar.log
 ```
-Cannot invoke "ObjectArrayList.get(int)" because "this.wrapped" is null
-```
 
-This plugin clears all `AttributeInstance` modifiers before the player ticks — sidestepping the crash entirely.
+## 📦 Commands
 
-## ✅ Features
+| Command | Description |
+|--------|-------------|
+| `/nar scan [player]` | Scan a player or all online players for bad attributes |
+| `/nar debug <player>` | Injects known broken modifiers for testing your setup |
+| `/nar reset <player>` | Resets a player’s attributes to vanilla defaults (optional) |
 
-- Clears all attribute modifiers on player join
-- Logs to console when a player is cleaned
-- Logs startup and shutdown events
-- Lightweight, no config, no commands
+## 🧪 Compatibility
 
-## 🛠️ Requirements
-
-- Minecraft 1.21+
-- Paper (not Spigot or Bukkit — it uses Paper’s attribute API)
-- Java 21
+- Requires **Java 17+**
+- Works with **Minecraft 1.17+**
+- Designed for **Paper** but may work on Spigot
 
 ## 📦 Building
 
