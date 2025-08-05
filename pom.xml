@@ -6,7 +6,7 @@
 
     <groupId>net.slimelabs</groupId>
     <artifactId>NullAttributeRemover</artifactId>
-    <version>1.4.1</version>
+    <version>1.5</version>
     <packaging>jar</packaging>
 
     <name>NullAttributeRemover</name>

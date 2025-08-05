@@ -37,7 +37,8 @@ kickOnFailure: true          # Kick player if bad modifiers can’t be removed
 log-to-console: true         # Show scan results in console
 log-to-file: true            # Save scan logs to plugins/NullAttributeRemover/nar.log
 logUUIDLikeNames: true       # Warn if modifier name looks like a UUID
-log-invalid-uuid-names: true    # If false, suppress logs like "Skipped bad UUID: armor.boots"
+log-invalid-uuid-names: true # If false, suppress logs like "Skipped bad UUID: armor.boots"
+ignoreDuplicateUUIDsAcrossAttributes: false  # If true, allows modifiers with the same UUID across multiple attributes
 debugLogs: true              # Enable detailed internal debug logs
 ```
 

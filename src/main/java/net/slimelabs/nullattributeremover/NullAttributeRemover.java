@@ -198,6 +198,7 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
 
         boolean logUUIDNames = getConfig().getBoolean("logUUIDLikeNames", false);
         boolean enableDebug = getConfig().getBoolean("debugLogs", false);
+        boolean ignoreGlobalDupes = getConfig().getBoolean("ignoreDuplicateUUIDsAcrossAttributes", false);
 
         for (Attribute attribute : Attribute.values()) {
             AttributeInstance instance = player.getAttribute(attribute);
@@ -219,13 +220,15 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
                     boolean isBlankName = (name == null || name.codePoints().allMatch(Character::isWhitespace));
                     boolean looksLikeUUID = false;
 
-                    if (name != null) {
+                    if (name != null && name.length() == 36 && name.chars().filter(ch -> ch == '-').count() == 4) {
                         try {
                             UUID.fromString(name);
                             looksLikeUUID = true;
                         } catch (IllegalArgumentException ignored) {}
+                    }
 
-                        if (looksLikeUUID && logUUIDNames && !silent) {
+                    if (looksLikeUUID && logUUIDNames && !silent) {
+                        if (loggedNamesThisScan.add(name)) {
                             getLogger().warning("[NAR] UUID-like name detected: '" + name + "' on attribute [" + attribute.name() + "] for player " + player.getName());
                         }
                     }
@@ -234,21 +237,29 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
                         shouldRemove = true;
                         reason = "blank name";
                     } else {
-                        try {
-                            uuid = modifier.getUniqueId();
-                            if (uuid == null) {
+                        if (looksLikeUUID) {
+                            try {
+                                uuid = modifier.getUniqueId();
+                                if (uuid == null) {
+                                    shouldRemove = true;
+                                    reason = "null UUID";
+                                } else {
+                                    globalUUIDMap.computeIfAbsent(uuid, k -> new ArrayList<>()).add(attribute.name());
+                                    localUUIDMap.computeIfAbsent(uuid, k -> new ArrayList<>()).add(modifier);
+                                }
+                            } catch (Exception ex) {
+                                if (enableDebug && loggedNamesThisScan.add(name)) {
+                                    getLogger().warning("[DEBUG] Failed to get UUID for modifier: " + name + " — " + ex.getMessage());
+                                }
                                 shouldRemove = true;
-                                reason = "null UUID";
-                            } else {
-                                globalUUIDMap.computeIfAbsent(uuid, k -> new ArrayList<>()).add(attribute.name());
-                                localUUIDMap.computeIfAbsent(uuid, k -> new ArrayList<>()).add(modifier);
+                                reason = "error fetching UUID: " + ex.getMessage();
                             }
-                        } catch (IllegalArgumentException ex) {
+                        } else {
+                            // Skip UUID validation for non-UUID-like names
+                            uuid = null;
                             if (enableDebug && loggedNamesThisScan.add(name)) {
-                                getLogger().warning("[DEBUG] Modifier has invalid UUID string: " + name);
+                                getLogger().warning("[DEBUG] Skipped UUID validation for non-UUID-like name: " + name);
                             }
-                            shouldRemove = true;
-                            reason = "invalid UUID string: " + ex.getMessage();
                         }
                     }
 
@@ -298,19 +309,21 @@ public final class NullAttributeRemover extends JavaPlugin implements Listener, 
             }
         }
 
-        for (Map.Entry<UUID, List<String>> entry : globalUUIDMap.entrySet()) {
-            if (entry.getValue().size() > 1) {
-                UUID dupeUUID = entry.getKey();
-                for (Attribute attribute : Attribute.values()) {
-                    AttributeInstance instance = player.getAttribute(attribute);
-                    if (instance == null) continue;
-                    for (AttributeModifier modifier : new ArrayList<>(instance.getModifiers())) {
-                        if (modifier != null && dupeUUID.equals(modifier.getUniqueId())) {
-                            if (!removeQueue.getOrDefault(attribute, List.of()).contains(modifier)) {
-                                removeQueue.computeIfAbsent(attribute, k -> new ArrayList<>()).add(modifier);
-                                logRemoved(player, attribute, modifier, "duplicate UUID (global)", silent);
-                                clearedAny = true;
-                                clearedCount++;
+        if (!ignoreGlobalDupes) {
+            for (Map.Entry<UUID, List<String>> entry : globalUUIDMap.entrySet()) {
+                if (entry.getValue().size() > 1) {
+                    UUID dupeUUID = entry.getKey();
+                    for (Attribute attribute : Attribute.values()) {
+                        AttributeInstance instance = player.getAttribute(attribute);
+                        if (instance == null) continue;
+                        for (AttributeModifier modifier : new ArrayList<>(instance.getModifiers())) {
+                            if (modifier != null && dupeUUID.equals(modifier.getUniqueId())) {
+                                if (!removeQueue.getOrDefault(attribute, List.of()).contains(modifier)) {
+                                    removeQueue.computeIfAbsent(attribute, k -> new ArrayList<>()).add(modifier);
+                                    logRemoved(player, attribute, modifier, "duplicate UUID (global)", silent);
+                                    clearedAny = true;
+                                    clearedCount++;
+                                }
                             }
                         }
                     }
